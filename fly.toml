@@ -1,0 +1,44 @@
+# fly.toml — Fly.io deploy config for KRW-Watcher
+#
+# IMPORTANT: This app MUST run as a SINGLE machine only.
+#   It holds in-memory state (activity_log ring buffer, runtime_state, data cache,
+#   process-wide broker singleton) AND runs an APScheduler in its FastAPI lifespan.
+#   Running 2+ machines would run the scheduler N times (N× Anthropic token burn)
+#   and split state. After `fly deploy`, KEEP `fly scale count 1` — never scale up.
+#
+# SECRETS: never bake keys into the image or commit them. Set them at runtime via:
+#   fly secrets set ANTHROPIC_API_KEY=... FRED_API_KEY=... BOK_ECOS_KEY=... \
+#     TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... JWT_SECRET=... \
+#     ADMIN_PASSWORD_HASH=... DATABASE_URL=... CRON_SECRET=... MODEL_ID=...
+#   (DATABASE_URL should point at a managed Postgres; init_db.py normalizes the scheme.)
+
+app = "krw-watcher"
+primary_region = "nrt"  # Tokyo — lowest latency to Korea
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DEV_MODE = "false"
+  ALLOWED_IPS = "*"           # public read endpoints; admin/cycle/cron still gated
+  BROKER = "paper"            # NEVER live trading on a public deploy
+  ENABLE_LIVE_TRADING = "false"
+  PORT = "8010"
+
+[http_service]
+  internal_port = 8010
+  force_https = true
+  auto_stop_machines = false  # keep the single machine alive for the scheduler
+  auto_start_machines = true
+  min_machines_running = 1    # exactly one — scheduler/state must not duplicate
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

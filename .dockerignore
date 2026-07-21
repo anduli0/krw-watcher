@@ -1,0 +1,101 @@
+# ── KRW-Watcher .dockerignore ────────────────────────────────────────────────
+# Keep the build context lean and—critically—keep secrets, local state, and the
+# real ./.env out of the image. The app reads ALL secrets from runtime env vars,
+# so nothing sensitive ever needs to be copied in.
+
+# ── Secrets / env (NEVER bake these into the image) ──────────────────────────
+.env
+.env.*
+*.env
+.envrc
+secrets/
+*.secret
+*.secrets
+*.key
+*.pem
+*.pfx
+*.p12
+credentials.json
+service-account*.json
+
+# ── Local databases / persisted state (use managed Postgres in prod) ─────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+agent_weights.json
+
+# ── Python virtualenvs / caches / build artifacts ───────────────────────────
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.Python
+pip-wheel-metadata/
+
+# ── Test / tooling caches ────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ── Logs (runtime output, not needed in image) ──────────────────────────────
+*.log
+server.log
+cyc.log
+logs/
+
+# ── Version control / VCS metadata ───────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ── Node / frontend deps (if a frontend ever ships) ──────────────────────────
+frontend/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Editor / OS cruft ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Docs / scratch (not required at runtime) ─────────────────────────────────
+README*.md
+*.scratch
+scratch/
+notes/
+docs/
+
+# ── Docker meta (don't copy these into the build context) ────────────────────
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.docker/

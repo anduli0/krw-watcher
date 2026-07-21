@@ -1,0 +1,22 @@
+# KRW-Watcher — Caddy reverse proxy for a self-hosted VPS (automatic HTTPS)
+#
+# Replace "your-domain.example" below with your real domain (DNS A/AAAA record
+# must point at this VPS). Caddy then auto-provisions and renews a free
+# Let's Encrypt TLS certificate for it — no manual cert steps needed.
+#
+# Run the KRW-Watcher app on localhost:8010 behind this proxy, e.g.:
+#   - docker compose (see deploy/docker-compose.yml), or
+#   - systemd service running:
+#       uvicorn backend.main:app --host 0.0.0.0 --port 8010 --workers 1
+#     (SINGLE WORKER ONLY — the app holds in-memory state + an APScheduler.)
+#
+# Because the app sits behind this proxy, set ALLOWED_IPS=* in its env so the
+# read endpoints stay reachable. Caddy automatically sets X-Forwarded-For /
+# X-Forwarded-Proto, which the app already trusts to recover the real client IP.
+# (Write endpoints — /api/cycle, /api/briefing/generate, /api/admin/*,
+#  /admin-secure-panel/* — still require admin login or X-Cron-Secret.)
+
+your-domain.example {
+    encode gzip
+    reverse_proxy localhost:8010
+}

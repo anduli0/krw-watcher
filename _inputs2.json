@@ -1,0 +1,114 @@
+{
+ "spot": 1529.02001953125,
+ "bok": "None",
+ "news": [
+  {
+   "title": "Korean Won Crisis: Bank of America Forecasts USD/KRW to Plummet to 12-Year Low | Forex News currency markets - CryptoRank",
+   "published_at": ""
+  },
+  {
+   "title": "Korean Won Forecast: Geopolitical Tensions Anchor USD/KRW in Critical 1,450–1,550 Range - Binance",
+   "published_at": ""
+  },
+  {
+   "title": "USD/KRW: BofA forecasts Korean Won to hit weakest level since 2012 - Investing.com",
+   "published_at": ""
+  },
+  {
+   "title": "[크랩] 무역은 역대급 호황인데 원달러 환율은 왜 안 떨어질까? - KBS 뉴스",
+   "published_at": ""
+  },
+  {
+   "title": "BofA revises USD/KRW forecast amid government intervention - Investing.com",
+   "published_at": ""
+  },
+  {
+   "title": "USD/KRW Forecast Shifts Dramatically as Bank of America Responds to Government Intervention - CryptoRank",
+   "published_at": ""
+  },
+  {
+   "title": "United States Dollar Index strengthens above 101.00 as traders ramp up bets on Fed rate hike - FXStreet",
+   "published_at": ""
+  },
+  {
+   "title": "US Dollar Index Trims Gains As Fed Rate Hike Bets Fade - Bitcoin World",
+   "published_at": ""
+  },
+  {
+   "title": "수출 늘어도 떨어지지 않는 환율…\"3분기에는 1600원 돌파 가능성\" - 이데일리TV",
+   "published_at": ""
+  },
+  {
+   "title": "Korea posts second-largest current account surplus in April on semiconductor exports: BOK - Korea JoongAng Daily",
+   "published_at": ""
+  },
+  {
+   "title": "US Dollar Index Price Forecast: Sticks to gains near 101.35 as bulls await Fed's Warsh - TMGM",
+   "published_at": ""
+  },
+  {
+   "title": "US Dollar Index Holds Gains Near 101.35 as Market Awaits Fed’s Warsh Speech - CryptoRank",
+   "published_at": ""
+  },
+  {
+   "title": "US Dollar: Fed-driven gains extend as DXY breaks range – HSBC - FXStreet",
+   "published_at": ""
+  },
+  {
+   "title": "외환시장 24시간 개방 첫날… 원·달러 환율, 2원 오른 1527.6원 개장 - 조선비즈 - Chosunbiz",
+   "published_at": ""
+  },
+  {
+   "title": "[속보]원·달러 환율, 4.7원 오른 1530.3원 마감 - 뉴시스",
+   "published_at": ""
+  },
+  {
+   "title": "외환시장 24시간 개장 첫날… 원·달러 환율 어떻게 움직였을까 - 더스쿠프",
+   "published_at": ""
+  },
+  {
+   "title": "24시간 외환시장 시대 개막…첫 거래일 원·달러 환율 1530원대 안정 - ebn.co.kr",
+   "published_at": ""
+  },
+  {
+   "title": "24시간 외환시장 첫날…원·달러 환율 1530원대 - 강원도민일보",
+   "published_at": ""
+  },
+  {
+   "title": "외환시장 24시간 개방 첫날 원·달러 환율 상승… 4.7원 오른 1530.3원 마감 - 조선비즈 - Chosunbiz",
+   "published_at": ""
+  },
+  {
+   "title": "24시간 외환시장 거래 첫날…오전 6시 원·달러 환율 1530원 - 매일경제",
+   "published_at": ""
+  }
+ ],
+ "macro": "Snapshot(series={'DFF': SeriesData(series_id='DFF', label='Fed Funds Rate (Effective) %', latest_value=3.63, latest_date='2026-07-03', prior_value=3.63, change=0.0), 'DGS2': SeriesData(series_id='DGS2', label='US 2Y Treasury Yield %', latest_value=4.14, latest_date='2026-07-02', prior_value=4.17, change=-0.03), 'DGS10': SeriesData(series_id='DGS10', label='US 10Y Treasury Yield %', latest_value=4.49, latest_date='2026-07-02', prior_value=4.48, change=0.01), 'CPIAUCSL': SeriesData(series_id='CPIAUCSL', label='US CPI (All Urban) index', latest_value=333.979, latest_date='2026-05-01', prior_value=332.407, change=1.572), 'T5YIE': SeriesData(series_id='T5YIE', label='US 5Y Breakeven Inflation %', latest_value=2.27, latest_date='2026-07-06', prior_value=2.24, change=0.03), 'PAYEMS': SeriesData(series_id='PAYEMS', label='US Nonfarm Payrolls (level, thousands)', latest_value=158984.0, latest_date='2026-06-01', prior_value=158927.0, change=57.0), 'UNRATE': SeriesData(series_id='UNRATE', label='US Unemployment Rate %', latest_value=4.2, latest_date='2026-06-01', prior_value=4.3, change=-0.1), 'ICSA': SeriesData(series_id='ICSA', label='US Initial Jobless Claims', latest_value=215000.0, latest_date='2026-06-27', prior_value=216000.0, change=-1000.0), 'DEXUSEU': SeriesData(series_id='DEXUSEU', label='EUR/USD (ECB vs Fed divergence → DXY)', latest_value=1.1448, latest_date='2026-07-02', prior_value=1.1384, change=0.0064), 'DEXJPUS': SeriesData(series_id='DEXJPUS', label='USD/JPY (BOJ poli",
+ "collected_at": "2026-07-06T23:30:40.279698",
+ "forecast": [
+  {
+   "horizon": "1w",
+   "delta": -1.0,
+   "confidence": 0.0,
+   "signal": "neutral"
+  },
+  {
+   "horizon": "1m",
+   "delta": 2.0,
+   "confidence": 0.0,
+   "signal": "neutral"
+  },
+  {
+   "horizon": "3m",
+   "delta": 9.0,
+   "confidence": 0.0,
+   "signal": "krw_weak"
+  },
+  {
+   "horizon": "12m",
+   "delta": 21.0,
+   "confidence": 0.0,
+   "signal": "krw_weak"
+  }
+ ]
+}

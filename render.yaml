@@ -1,0 +1,54 @@
+# Render Blueprint for KRW-Watcher
+# IMPORTANT: numInstances MUST stay 1. The app holds in-memory state
+# (activity_log ring buffer, runtime_state, data cache, broker singleton)
+# and runs an APScheduler in its FastAPI lifespan. Running 2+ instances
+# would run the scheduler N times (N x Anthropic token burn) and split state.
+# The Dockerfile start command must use --workers 1 (uvicorn default) and honor $PORT.
+
+services:
+  - type: web
+    name: krw-watcher
+    runtime: docker
+    env: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    # Free tier is single-instance by nature — exactly what the in-memory state +
+    # APScheduler require. NEVER move to a plan/config that runs 2+ instances.
+    plan: free
+    envVars:
+      # Generated once by Render, kept stable across deploys.
+      - key: JWT_SECRET
+        generateValue: true
+      # Production security posture.
+      - key: DEV_MODE
+        value: "false"
+      - key: ALLOWED_IPS
+        value: "*"
+      # Keep trading safe for a public deploy.
+      - key: BROKER
+        value: paper
+      - key: ENABLE_LIVE_TRADING
+        value: "false"
+      # Daily report guarantee — one report/day, self-healed by the 30-min sweep even if
+      # the every-2h cycle is off. Defaults below; the app works without setting them.
+      # See docs/AUTO_DAILY_REPORT.md. Requires a funded ANTHROPIC_API_KEY to run the cycle.
+      - key: DISABLE_DAILY_REPORT
+        value: "false"
+      - key: DAILY_REPORT_HOUR_KST
+        value: "8"
+      # Free tier has no managed Postgres + no persistent disk, so the app uses its
+      # SQLite default (backend/database/init_db.py). NOTE: the free-tier filesystem is
+      # ephemeral — forecast history resets on redeploy/restart. The daily GitHub Action
+      # (.github/workflows/daily-update-krw.yml) regenerates the day's report regardless.
+      # To persist history across restarts, set DATABASE_URL to a free Neon Postgres URL.
+      # Secrets — set these in the Render dashboard (Environment tab).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FRED_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false

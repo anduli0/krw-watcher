@@ -1,0 +1,75 @@
+name: Daily update krw-watcher
+
+# Guarantees today's report exists on the free-tier Render service before 08:00 KST.
+# The app's own APScheduler produces the morning update on its own IF the process is
+# awake — but a free-tier service sleeps after 15 min idle and can miss its internal
+# schedule. This workflow is the verify-and-repair layer: it wakes the service (cold
+# start), and if today's report is missing it forces one via the CRON_SECRET-gated
+# endpoint. Idempotent — skips when today's report is already complete, so the retry
+# sweeps are harmless no-ops.
+
+on:
+  schedule:
+    - cron: '50 22 * * *'    # 07:50 KST — ensure the report before 08:00
+    - cron: '50 0,3 * * *'   # 09:50, 12:50 KST — retry sweeps (no-op when fresh)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force-regenerate today's report even if it already exists
+        required: false
+        default: 'false'
+
+concurrency:
+  group: krw-daily-update
+  cancel-in-progress: false
+
+env:
+  BASE_URL: ${{ secrets.KRW_BASE_URL }}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Wake service (Render free-tier cold start)
+        run: |
+          set -e
+          if [ -z "$BASE_URL" ]; then echo "ERROR: KRW_BASE_URL secret not set"; exit 1; fi
+          for i in $(seq 1 24); do
+            H=$(curl -sf --max-time 25 "$BASE_URL/health" || echo "")
+            if [ -n "$H" ]; then echo "health: $H"; exit 0; fi
+            echo "  [$i] not up yet, waiting 15s..."
+            sleep 15
+          done
+          echo "ERROR: service did not come up within ~6 min"; exit 1
+
+      - name: Ensure today's report (force only if missing)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          set -e
+          STATUS=$(curl -sf --max-time 25 "$BASE_URL/api/report/daily/status" || echo '{}')
+          echo "report status: $STATUS"
+          COMPLETE=$(echo "$STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('complete', False))" 2>/dev/null || echo "False")
+
+          if [ "$COMPLETE" = "True" ] && [ "$FORCE" != "true" ]; then
+            echo "Today's report already complete -> nothing to do."
+            exit 0
+          fi
+
+          echo "=== Forcing daily report (this runs the committee cycle + brief; up to ~40 min) ==="
+          CODE=$(curl -s -o /tmp/report.json -w '%{http_code}' --max-time 2400 \
+            -X POST "$BASE_URL/api/report/daily" \
+            -H "X-Cron-Secret: $CRON_SECRET")
+          echo "POST /api/report/daily -> HTTP $CODE"
+          cat /tmp/report.json 2>/dev/null || true
+          echo
+          if [ "$CODE" != "200" ]; then echo "ERROR: report generation failed"; exit 1; fi
+
+      - name: Verify report is complete
+        run: |
+          set -e
+          STATUS=$(curl -sf --max-time 25 "$BASE_URL/api/report/daily/status" || echo '{}')
+          echo "final status: $STATUS"
+          echo "$STATUS" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('complete') else 1)"

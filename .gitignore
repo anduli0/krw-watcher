@@ -1,0 +1,55 @@
+# === Secrets (NEVER commit) ===
+.env
+.env.local
+.env.*.local
+
+# Keep example/templates tracked
+!.env.example
+!.env.production.example
+
+# === Databases / local data artifacts ===
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# === Python virtual environments ===
+.venv/
+venv/
+env/
+
+# === Python bytecode / caches ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# === Logs ===
+*.log
+server.log
+cyc.log
+
+# === Runtime state ===
+agent_weights.json
+backend/agent_weights.json
+
+# === OS / editor cruft ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# === Secret-bearing local files (purged from history 2026-07-21) ===
+krw-watcher-cloudflare-backup.bat
+server_restart.log.err
+*.log.err
+
+# === CI build artifacts (generated in Actions) ===
+/_site/
+/data/

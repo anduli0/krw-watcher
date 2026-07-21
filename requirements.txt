@@ -1,0 +1,21 @@
+# Lower-bound pins (not exact) so a fresh install picks up wheels for your Python
+# version — Python 3.13/3.14 need recent pydantic-core/numpy wheels. Tested on 3.14.
+fastapi>=0.115
+uvicorn[standard]>=0.34
+anthropic>=0.42
+pydantic>=2.11
+pydantic-settings>=2.7
+sqlalchemy[asyncio]>=2.0.36
+aiosqlite>=0.20
+httpx>=0.28
+apscheduler>=3.11
+feedparser>=6.0
+python-dateutil>=2.9
+# Security
+PyJWT>=2.8
+bcrypt>=4.0
+# Production database driver (managed Postgres on Railway/Render/Neon/Supabase).
+# Not used for local SQLite; harmless to install.
+asyncpg>=0.30
+# Optional — intraday USD/KRW spot. Falls back to FRED DEXKOUS if unavailable.
+yfinance>=0.2.51

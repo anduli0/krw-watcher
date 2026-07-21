@@ -1,0 +1,20 @@
+# KRW-Watcher on Oracle Cloud Always Free VM (Ampere A1, Ubuntu)
+# Single instance ONLY — in-memory state + APScheduler (see render.yaml note).
+# Data lives in ./data (SQLite) so `docker compose down` never loses history.
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: krw-watcher
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    env_file:
+      - ../../.env
+    environment:
+      # Overrides .env: keep the DB on the mounted volume, KST for schedules.
+      DATABASE_URL: sqlite+aiosqlite:////data/krw_watcher.db
+      TZ: Asia/Seoul
+    volumes:
+      - ./data:/data

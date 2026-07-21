@@ -1,0 +1,47 @@
+# KRW-Watcher docker-compose
+#
+# IMPORTANT: SINGLE APP INSTANCE ONLY.
+# The "app" service runs an APScheduler in its FastAPI lifespan and holds
+# process-wide in-memory state (activity_log ring buffer, runtime_state, data
+# cache, broker singleton). Running more than one replica/worker would run the
+# scheduler N times (N x Anthropic token burn) and split that state.
+# => Do NOT scale: never `docker compose up --scale app=2`, keep workers at 1.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Point the app at the bundled Postgres. init_db.py normalizes the URL.
+      DATABASE_URL: postgresql+asyncpg://krw:krw@db:5432/krw
+      # Public-read by default; protected endpoints still require admin/X-Cron-Secret.
+      ALLOWED_IPS: "*"
+      # Production hardening: disable dev auth bypass.
+      DEV_MODE: "false"
+    ports:
+      - "8010:8010"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: krw
+      POSTGRES_PASSWORD: krw
+      POSTGRES_DB: krw
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krw -d krw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
