@@ -16,39 +16,45 @@ HORIZONS = ("1w", "1m", "3m", "12m")
 
 
 async def forecast_accuracy(db: AsyncSession) -> dict:
-    rows = (await db.execute(select(FeedbackEntry))).scalars().all()
-    by_h: dict[str, list[FeedbackEntry]] = {h: [] for h in HORIZONS}
-    by_agent: dict[str, list[float]] = {}
-    for r in rows:
-        if r.horizon in by_h:
-            by_h[r.horizon].append(r)
-        if r.divergence_krw is not None:
-            by_agent.setdefault(r.agent_id, []).append(abs(r.divergence_krw))
+    """Headline per-horizon directional hit-rate + MAE of the SYSTEM's published
+    (bias-corrected) committee forecast — its ACTUAL output — scored against realized
+    USD/KRW once each horizon matures. Reuses the same scoring as the accuracy chart
+    (track._live_points) so the number the user sees reflects what the system published,
+    not the raw per-agent votes (which carry the systematic bias the feedback loop corrects).
+    The per-agent MAE ranking below still comes from FeedbackEntry — a separate, legitimate
+    signal used to weight agents."""
+    from backend.accuracy.track import _live_points, ensure_realized_history
+    await ensure_realized_history(db)
 
     horizons = {}
-    for h, entries in by_h.items():
-        if not entries:
+    total = 0
+    for h in HORIZONS:
+        pts = await _live_points(db, h)
+        total += len(pts)
+        if not pts:
             horizons[h] = {"samples": 0}
             continue
-        hits = sum(1 for e in entries
-                   if e.predicted_delta is not None and e.actual_delta is not None
-                   and e.predicted_delta * e.actual_delta > 0)
-        directional = [e for e in entries if e.predicted_delta and abs(e.predicted_delta) > 1]
-        hit_rate = (sum(1 for e in directional if e.predicted_delta * e.actual_delta > 0)
-                    / len(directional)) if directional else None
-        mae = statistics.mean([abs(e.divergence_krw) for e in entries if e.divergence_krw is not None]) \
-            if entries else None
+        directional = [p for p in pts if abs(p["pred_delta"]) > 1]
+        hit_rate = (sum(p["hit"] for p in directional) / len(directional)) if directional else None
+        mae = statistics.mean([abs(p["pred_delta"] - p["real_delta"]) for p in pts])
         horizons[h] = {
-            "samples": len(entries),
+            "samples": len(pts),
             "directional_hit_rate": round(hit_rate, 3) if hit_rate is not None else None,
-            "mae_krw": round(mae, 2) if mae is not None else None,
+            "mae_krw": round(mae, 2),
         }
 
+    # Per-agent MAE ranking (raw per-agent forecast error) — separate from the headline;
+    # used to rank/weight agents, not to judge the system's published accuracy.
+    rows = (await db.execute(select(FeedbackEntry))).scalars().all()
+    by_agent: dict[str, list[float]] = {}
+    for r in rows:
+        if r.divergence_krw is not None:
+            by_agent.setdefault(r.agent_id, []).append(abs(r.divergence_krw))
     ranking = sorted(
         ({"agent_id": aid, "mae_krw": round(statistics.mean(v), 2), "n": len(v)}
          for aid, v in by_agent.items() if len(v) >= 3),
         key=lambda x: x["mae_krw"])
-    return {"horizons": horizons, "agent_ranking": ranking[:20], "total_samples": len(rows)}
+    return {"horizons": horizons, "agent_ranking": ranking[:20], "total_samples": total}
 
 
 async def trading_performance(db: AsyncSession) -> dict:

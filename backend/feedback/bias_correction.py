@@ -37,6 +37,16 @@ SIM_PRIOR_W = 0.5         # cold-start: half-weight the walk-forward residual as
 BLEND_K = 10              # w_real = n / (n + K): trust grows with sample count
 SCALE_CLAMP = (0.6, 1.3)  # never flip sign or amplify wildly
 BIAS_CLAMP_FRAC = 0.8     # |bias| ≤ 0.8 × typical realized move at that horizon
+# Directional-inversion guard: when a horizon's published forecasts point the WRONG way
+# this consistently, the systematic miss is large AND proven — not noise. In that regime
+# the normal clamps leave the correction timid (direction barely flips, magnitude far
+# short) and confidence stays high. The guard loosens the bias clamp so the miss can be
+# neutralized in full, and lowers the confidence floor so an inverted horizon reads humble
+# until its corrected forecasts prove out.
+DIR_GUARD_HIT = 0.35      # realized directional hit-rate ≤ this = systematically inverted
+DIR_GUARD_MIN = 6         # need at least this many matured directional samples to trust it
+DIR_GUARD_CAP_FRAC = 1.5  # inverted regime: allow |bias| up to 1.5 × typical move
+DIR_GUARD_CONF_FLOOR = 0.4  # inverted regime: let conf_scale fall this far (vs 0.7 normal)
 MATURED_SCAN = 300        # cap matured-forecast scan (recency-weighted)
 _CACHE_TTL = 600          # adjustments change slowly — cache 10 min (cycle + dashboard)
 _CACHE: dict = {"t": 0.0, "data": None}
@@ -99,6 +109,7 @@ async def compute_horizon_adjustments(db: AsyncSession, use_cache: bool = True) 
         cap = CONF_CAP.get(h, 0.85)
         dir_hit = None   # realized directional hit-rate (only known once enough forecasts mature)
         n_dir = 0
+        dir_guard = False   # set when the inversion guard fires (systematically wrong way)
         try:
             pairs = await _matured_pairs(db, h, now)
         except Exception as e:
@@ -111,15 +122,19 @@ async def compute_horizon_adjustments(db: AsyncSession, use_cache: bool = True) 
             real_bias = mean_pred - mean_real
             real_scale = _clamp(_scale_through_origin(pairs), *SCALE_CLAMP)
             w = n / (n + BLEND_K)
-            cap_krw = BIAS_CLAMP_FRAC * (rw.get(h) or 50.0)
-            bias = _clamp(w * real_bias, -cap_krw, cap_krw)
-            scale = w * real_scale + (1 - w) * 1.0
             dirn = [(p, a) for p, a in pairs if abs(p) > 1]
             hit = (sum(1 for p, a in dirn if p * a > 0) / len(dirn)) if dirn else 0.5
-            conf_scale = _clamp(0.45 + hit, 0.7, 1.05)
+            # Fire the guard on a proven inversion, then loosen clamp + drop conf floor.
+            dir_guard = len(dirn) >= DIR_GUARD_MIN and hit <= DIR_GUARD_HIT
+            cap_frac = DIR_GUARD_CAP_FRAC if dir_guard else BIAS_CLAMP_FRAC
+            conf_floor = DIR_GUARD_CONF_FLOOR if dir_guard else 0.7
+            cap_krw = cap_frac * (rw.get(h) or 50.0)
+            bias = _clamp(w * real_bias, -cap_krw, cap_krw)
+            scale = w * real_scale + (1 - w) * 1.0
+            conf_scale = _clamp(0.45 + hit, conf_floor, 1.05)
             if dirn:
                 dir_hit, n_dir = round(hit, 3), len(dirn)
-            source = f"live · n={n}"
+            source = f"live · n={n}" + (" · dir-guard" if dir_guard else "")
         else:
             # No matured committee forecasts yet → don't sit at identity. Seed from the
             # walk-forward simulator's OWN recent residual (a real out-of-sample error
@@ -136,7 +151,8 @@ async def compute_horizon_adjustments(db: AsyncSession, use_cache: bool = True) 
                 source = f"prior · n={n} (awaiting matured forecasts)"
         out[h] = {"bias_krw": round(bias, 2), "scale": round(scale, 3),
                   "conf_scale": round(conf_scale, 3), "conf_cap": cap,
-                  "n_real": n, "dir_hit": dir_hit, "n_dir": n_dir, "source": source}
+                  "n_real": n, "dir_hit": dir_hit, "n_dir": n_dir,
+                  "dir_guard": dir_guard, "source": source}
     _CACHE.update(t=now0, data=out)
     return out
 
