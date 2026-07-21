@@ -13,10 +13,10 @@ import html as _html
 import logging
 from datetime import date
 
-import anthropic
 from sqlalchemy import select, desc
 
 from backend.config import settings
+from backend.llm import make_client
 from backend.database.models import RunLog, AgentOutput, DailyBriefing
 from backend.database import crud
 
@@ -135,7 +135,7 @@ async def generate_brief(db, lang: str = "ko") -> dict:
         "서술체로 쓰세요 — 노련한 외환 스트래티지스트가 아침 데스크 노트를 쓰듯 매끄럽고 읽기 좋게. "
         "구체적 수치·드라이버를 문장 안에 자연스럽게 녹이고, 뉴스는 단순 나열이 아니라 환율 함의로 엮어 종합하세요."
     )
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = make_client()
     brief = {}
     try:
         resp = await client.messages.create(

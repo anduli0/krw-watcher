@@ -3,8 +3,8 @@ Change justifier — when a published horizon forecast moves, the Chief writes a
 KO explanation of WHY (which drivers/agents/event drove it). Stored for transparency
 and audit (you should know why your money signal changed before acting on it).
 """
-import anthropic
 from backend.config import settings
+from backend.llm import make_client
 
 
 async def justify_change(horizon: str, new_delta: float, prev_delta: float,
@@ -28,7 +28,7 @@ async def justify_change(horizon: str, new_delta: float, prev_delta: float,
         "이 변경의 핵심 이유를 한국어 2문장 이내로 설명하세요. 구체적 드라이버를 인용하고, "
         "프리앰블 없이 설명만 출력하세요."
     )
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = make_client()
     try:
         resp = await client.messages.create(
             model=settings.MODEL_ID, max_tokens=300,

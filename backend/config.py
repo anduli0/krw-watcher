@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     # ── Core ──
     ANTHROPIC_API_KEY: str = ""
     MODEL_ID: str = "claude-sonnet-4-6"
+    # LLM auth backend: "api" → api.anthropic.com with ANTHROPIC_API_KEY (pay-as-you-go
+    # credits); "subscription" → route model calls through the Claude Agent SDK / Claude
+    # Code CLI authenticated by a Max/Pro subscription (CLAUDE_CODE_OAUTH_TOKEN, no credits).
+    LLM_BACKEND: str = "api"
+    LLM_MAX_CONCURRENCY: int = 4        # cap concurrent CLI calls in subscription mode
 
     # ── Data sources ──
     FRED_API_KEY: str = ""

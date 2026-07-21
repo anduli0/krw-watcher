@@ -10,8 +10,8 @@ KRW-Watcher orchestrator.
 import asyncio
 import json
 from datetime import datetime
-import anthropic
 from backend.data import activity_log as AL
+from backend.llm import make_client
 
 from backend.agents.base_agent import (
     AgentContext, AgentResult, BaseAgent, HORIZONS, SIGNAL_DEADBAND_KRW,
@@ -466,7 +466,7 @@ async def _group_orchestrate(group_label: str, results: list[AgentResult],
         f"아래는 당신 그룹 소속 에이전트들의 호라이즌별 예측(Δ원, +면 원화 약세)입니다. "
         f"이들을 토론·검토하여(동의/이견 식별, 근거가 탄탄한 견해에 가중) 그룹의 통합 견해 하나로 종합하세요.\n\n"
         f"[그룹 에이전트]\n{rows}\n\n[전체 위원회 정량 앵커]\n{anchor}\n\n{GROUP_SCHEMA}")
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = make_client()
     data = {}
     try:
         resp = await client.messages.create(model=settings.MODEL_ID, max_tokens=1400,
@@ -509,7 +509,7 @@ async def _chief_orchestrate(views: dict, math_aggregates: dict, ctx: AgentConte
         "(단기)에 강합니다. 세 섹터의 긴장을 어떻게 가중·조정했는지 명시하고(예: 호라이즌별 가중), "
         "호라이즌별 최종 Δ와 신뢰도, 그리고 최종 분석 리포트(한/영)를 작성하세요.\n\n"
         f"{CHIEF_SCHEMA}")
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = make_client()
     try:
         resp = await client.messages.create(model=settings.MODEL_ID, max_tokens=2600,
                                             messages=[{"role": "user", "content": prompt}])
@@ -578,7 +578,7 @@ Current spot: {ctx.spot if ctx.spot else 'n/a'}원
 {instruction}
 
 Output ONLY the markdown report, no preamble."""
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = make_client()
     try:
         resp = await client.messages.create(
             model=settings.MODEL_ID, max_tokens=1200,

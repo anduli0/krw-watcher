@@ -22,6 +22,7 @@ import re
 import statistics
 import anthropic
 from backend.config import settings
+from backend.llm import make_client
 
 REASONING_TRUNCATE = 600
 HORIZONS = ("1w", "1m", "3m", "12m")
@@ -173,7 +174,7 @@ class BaseAgent(ABC):
     self_consistency_n: int = 1
 
     def __init__(self):
-        self._client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self._client = make_client()
 
     @abstractmethod
     def _system_prompt(self) -> str: ...

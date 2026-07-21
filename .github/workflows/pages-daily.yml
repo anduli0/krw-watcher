@@ -46,7 +46,11 @@ jobs:
       ALLOWED_IPS: "*"
       DATABASE_URL: "sqlite+aiosqlite:///${{ github.workspace }}/data/krw_watcher.db"
       MODEL_ID: claude-sonnet-4-6
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Drive the AI committee off the Max/Pro subscription (no pay-as-you-go credits).
+      # ANTHROPIC_API_KEY is intentionally NOT set here — if present, the Claude CLI would
+      # prefer the paid API over the subscription token and fail on a $0 credit balance.
+      LLM_BACKEND: subscription
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -80,6 +84,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI (subscription LLM backend)
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Install dependencies
         run: pip install -r requirements.txt

@@ -3,6 +3,10 @@
 fastapi>=0.115
 uvicorn[standard]>=0.34
 anthropic>=0.42
+# Subscription LLM backend (LLM_BACKEND=subscription): routes model calls through the
+# Claude Code CLI on a Max/Pro plan instead of pay-as-you-go API credits. The `claude`
+# CLI must also be on PATH (npm i -g @anthropic-ai/claude-code) + CLAUDE_CODE_OAUTH_TOKEN.
+claude-agent-sdk>=0.2
 pydantic>=2.11
 pydantic-settings>=2.7
 sqlalchemy[asyncio]>=2.0.36
