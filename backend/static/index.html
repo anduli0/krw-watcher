@@ -786,7 +786,12 @@ async function loadBriefList(){
 async function loadBrief(){const d=await get('/api/briefing/latest'+(curBrief?('?date='+encodeURIComponent(curBrief)):''));if(!d||!d.brief){$('#brief').innerHTML=`<span class="muted">${L("'생성·전송'을 누르면 작성 후 텔레그램으로 발송됩니다.","Click 'Generate & send' to create the brief and push it to Telegram.")}</span>`;return;}const b=d.brief;
   let h=`<div style="font-weight:800;font-size:15px">${b.title||''}</div><div class="muted" style="margin:4px 0 10px">${b.headline||''} · ${b.date||''}</div>`;
   if(b.forecast_summary)h+=`<div style="margin-bottom:8px"><b>📊 ${L('환율 전망','FX outlook')}</b><br>${b.forecast_summary}</div>`;
+  const hb=b.horizon_breakdown||{},hn={'1w':L('1주','1w'),'1m':L('1개월','1m'),'3m':L('3개월','3m'),'12m':L('1년','12m')};
+  if(['1w','1m','3m','12m'].some(k=>hb[k]))h+=`<div style="margin-bottom:8px"><b>🧭 ${L('기간별 근거','By horizon')}</b><ul style="margin:4px 0;padding-left:18px">${['1w','1m','3m','12m'].filter(k=>hb[k]).map(k=>`<li><b>${hn[k]}</b> ${hb[k]}</li>`).join('')}</ul></div>`;
   if(b.analysis)h+=`<div style="margin-bottom:8px"><b>🔎 ${L('전문 분석','Analysis')}</b><br>${b.analysis}</div>`;
+  if(b.key_levels)h+=`<div style="margin-bottom:8px"><b>📐 ${L('주요 레벨','Key levels')}</b><br>${b.key_levels}</div>`;
+  const sc=b.scenario||{};
+  if(sc.base||sc.bull_usd||sc.bear_usd){const sr=[];if(sc.base)sr.push(`<li><b>${L('기준','Base')}</b> ${sc.base}</li>`);if(sc.bull_usd)sr.push(`<li><b>${L('원화 약세','USD↑')}</b> ${sc.bull_usd}</li>`);if(sc.bear_usd)sr.push(`<li><b>${L('원화 강세','USD↓')}</b> ${sc.bear_usd}</li>`);h+=`<div style="margin-bottom:8px"><b>🎲 ${L('시나리오','Scenarios')}</b><ul style="margin:4px 0;padding-left:18px">${sr.join('')}</ul></div>`;}
   if((b.news_digest||[]).length)h+=`<div style="margin-bottom:8px"><b>📰 ${L('핵심 뉴스 종합','News digest')}</b><ul style="margin:4px 0;padding-left:18px">${b.news_digest.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
   if(b.trading_view)h+=`<div style="margin-bottom:8px"><b>🎯 ${L('트레이딩 함의','Trading view')}</b><br>${b.trading_view}</div>`;
   if((b.risks||[]).length)h+=`<div><b>⚠️ ${L('리스크','Risks')}</b><ul style="margin:4px 0;padding-left:18px">${b.risks.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;

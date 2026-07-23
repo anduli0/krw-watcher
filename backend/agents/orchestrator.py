@@ -325,9 +325,18 @@ async def run_full_cycle(ctx: AgentContext, cycle_type: str = "scheduled") -> di
         else:
             agg["sector_agreement"] = "mixed"
 
-    report_ko = chief.get("report_ko") or await _derivation_report(
-        final_results, horizon_aggregates, outliers, revisions, errors, ctx, "ko")
-    report_en = chief.get("report_en") or ""
+    # Long-form report is generated OUTSIDE the chief consensus JSON so a long report
+    # can never truncate/break the parse of the horizon numbers (the core product).
+    hierarchy_for_report = {
+        "academic": academic_view, "public": public_view, "private": private_view,
+        "reconciliation": chief.get("reconciliation", ""),
+    }
+    report_ko, report_en = await asyncio.gather(
+        _derivation_report(final_results, horizon_aggregates, outliers, revisions,
+                           errors, ctx, "ko", hierarchy_for_report),
+        _derivation_report(final_results, horizon_aggregates, outliers, revisions,
+                           errors, ctx, "en", hierarchy_for_report),
+    )
 
     # ── Capture the deliberation trail so the dashboard can show HOW the forecast was reached ──
     # Round-2 coordination: each outlier's pre/post-consensus revision.
@@ -426,9 +435,7 @@ CHIEF_SCHEMA = """Respond ONLY with JSON:
     "3m":  {"delta_krw": <float>, "confidence": <0-0.93>},
     "12m": {"delta_krw": <float>, "confidence": <0-0.93>}
   },
-  "reconciliation": "<학계 vs 전문분석 견해를 어떻게 가중·조정했는지 2-3문장>",
-  "report_ko": "<최종 분석 리포트, 한국어 마크다운 700자 이내: 요약(4 horizon)·핵심동인·학계vs실무 이견·트레이딩 함의·리스크>",
-  "report_en": "<final report, English markdown under 700 chars>"
+  "reconciliation": "<학계 vs 퍼블릭 vs 프라이빗 견해를 호라이즌별로 어떻게 가중·조정했는지 3-4문장 — 어느 섹터를 어느 구간에서 더 신뢰했고 왜인지>"
 }
 delta_krw: +면 원화 약세. 코히런스 준수."""
 
@@ -506,8 +513,8 @@ async def _chief_orchestrate(views: dict, math_aggregates: dict, ctx: AgentConte
         f"  종합: {pri.get('synthesis','')}\n  이견정리: {pri.get('key_debate','')}\n\n"
         f"[정량 앵커] {anchor}\n현재 스팟: {ctx.spot}원\n\n"
         "학계는 적정가치·평균회귀(장기), 퍼블릭은 정책 경로·개입(정책 분기), 프라이빗은 수급·모멘텀·캐리"
-        "(단기)에 강합니다. 세 섹터의 긴장을 어떻게 가중·조정했는지 명시하고(예: 호라이즌별 가중), "
-        "호라이즌별 최종 Δ와 신뢰도, 그리고 최종 분석 리포트(한/영)를 작성하세요.\n\n"
+        "(단기)에 강합니다. 세 섹터의 긴장을 호라이즌별로 어떻게 가중·조정했는지 reconciliation에 구체적으로 "
+        "명시하고, 호라이즌별 최종 Δ와 신뢰도를 도출하세요.\n\n"
         f"{CHIEF_SCHEMA}")
     client = make_client()
     try:
@@ -521,7 +528,8 @@ async def _chief_orchestrate(views: dict, math_aggregates: dict, ctx: AgentConte
     return {"horizons": {}, "reconciliation": "(수석 종합 실패 — 정량 앵커 사용)"}
 
 
-async def _derivation_report(results, horizon_aggregates, outliers, revisions, errors, ctx, lang):
+async def _derivation_report(results, horizon_aggregates, outliers, revisions, errors, ctx, lang,
+                             hierarchy=None):
     rows = []
     for r in sorted(results, key=lambda x: x.agent_id):
         row = (f"| {r.agent_name} | {r.signal.upper()} | "
@@ -538,22 +546,55 @@ async def _derivation_report(results, horizon_aggregates, outliers, revisions, e
     outlier_text = ", ".join(o.agent_name for o in outliers) if outliers else "None — broad consensus"
     revised_text = ", ".join(r.agent_name for r in revisions.values() if r.revised) or "None"
 
+    # Sector-committee debate context (학계·퍼블릭·프라이빗 그룹 종합 + 수석 조정) so the report
+    # explains HOW the number was reached, not just the raw agent table.
+    def _sector_block(hier):
+        if not hier:
+            return ""
+        lbl = {"academic": "학계(이론·공식모형)", "public": "퍼블릭(중앙은행·정책)",
+               "private": "프라이빗(수급·셀사이드)"}
+        out = []
+        for k, name in lbl.items():
+            v = hier.get(k) or {}
+            syn = v.get("synthesis") or ""
+            deb = v.get("key_debate") or ""
+            if syn or deb:
+                out.append(f"- [{name}] {syn} {('· 이견: ' + deb) if deb else ''}".strip())
+        rec = hier.get("reconciliation") or ""
+        if rec:
+            out.append(f"- [수석 조정] {rec}")
+        return "\n".join(out)
+
+    sector_debate = _sector_block(hierarchy)
+    structural = (getattr(ctx, "structural_view", "") or "").strip()
+
     if lang == "ko":
         instruction = (
-            "Write the derivation report in KOREAN (한국어), under 800 characters:\n"
-            "1. **요약**: 4개 horizon(1주/1개월/3개월/1년) 한 줄씩, 원화 방향과 예상 폭(원)\n"
-            "2. **핵심 동인**: 어떤 드라이버(금리차/달러/위안/리스크/수급)가 신호를 이끌었는지 2-3개\n"
-            "3. **주요 이견**: 어느 데스크/에이전트가 반대 방향이었고 왜\n"
-            "4. **트레이딩 함의**: USD/KRW 롱/숏/관망 및 무효화 시나리오 1-2개")
+            "아래 위원회 데이터를 근거로 트레이딩 데스크용 도출 리포트를 한국어 마크다운으로 작성하세요 "
+            "(1000~1500자, 개조식이 아닌 각 섹션 서술체). 반드시 다음 섹션을 이 순서로 포함:\n"
+            "1. **전망 요약**: 4개 horizon(1주/1개월/3개월/1년) 각각 원화 방향·예상 폭(원)·신뢰도, 그리고 "
+            "구간 간 흐름(가속/전환/평탄)이 어떻게 연결되는지 한 문단\n"
+            "2. **핵심 동인**: 신호를 이끈 드라이버 3-4개(금리차·달러·위안/CNY·리스크심리·수급·통화량·엔캐리)를 "
+            "각각 방향과 함께 근거 있게\n"
+            "3. **섹터 이견과 가중**: 학계·퍼블릭·프라이빗 세 그룹이 어디서 갈렸고 수석이 호라이즌별로 어느 쪽에 "
+            "가중했는지(위 [섹터 협의] 반영)\n"
+            "4. **트레이딩 함의**: USD/KRW 롱/숏/관망 스탠스, 진입·관심 레벨(원), 사이즈 톤, 무효화 시나리오 1-2개\n"
+            "5. **리스크·관전 포인트**: 다음 세션에서 이 뷰를 흔들 수 있는 이벤트/레벨 2-3개")
     else:
         instruction = (
-            "Write the derivation report in ENGLISH, under 800 characters:\n"
-            "1. **Summary**: one line per horizon (1w/1m/3m/12m) with won direction & magnitude\n"
-            "2. **Key drivers**: which 2-3 drivers led the signal\n"
-            "3. **Key divergences**: which desks/agents differed and why\n"
-            "4. **Trading implication**: long/short/flat USD/KRW + 1-2 invalidation scenarios")
+            "Write a trading-desk derivation report in ENGLISH markdown (700-1100 words-equivalent, "
+            "flowing prose per section, not bullet fragments). Include these sections in order:\n"
+            "1. **Outlook summary**: each horizon (1w/1m/3m/12m) with won direction, magnitude (won) & "
+            "confidence, plus one paragraph on how the path connects across horizons (accelerating/turning/flat)\n"
+            "2. **Key drivers**: the 3-4 drivers (rate differential, USD, CNY, risk sentiment, flows, "
+            "money supply, yen carry) that led the signal, each with direction and rationale\n"
+            "3. **Sector divergence & weighting**: where academic vs public vs private desks split and how "
+            "the chief weighted each per horizon (reflect the committee reconciliation above)\n"
+            "4. **Trading implication**: long/short/flat USD/KRW stance, entry/watch levels (won), size tone, "
+            "1-2 invalidation scenarios\n"
+            "5. **Risks & watch points**: 2-3 events/levels that could break this view next session")
 
-    prompt = f"""You are the Chief FX Strategist. Generate a concise markdown derivation report for USD/KRW.
+    prompt = f"""You are the Chief FX Strategist. Generate a substantive markdown derivation report for USD/KRW that shows HOW the committee reached this call.
 
 Current spot: {ctx.spot if ctx.spot else 'n/a'}원
 
@@ -566,6 +607,12 @@ Current spot: {ctx.spot if ctx.spot else 'n/a'}원
 | Agent | Signal | 1W | 1M | 3M | 12M | Conf |
 |-------|--------|----|----|----|-----|------|
 {agent_table}
+
+## Committee sector debate (학계·퍼블릭·프라이빗 → 수석)
+{sector_debate or "N/A"}
+
+## Structural backdrop (slow FX-supply premise — apply mainly to 3m·12m)
+{structural or "None"}
 
 ## Collaboration
 - Outliers reviewed: {outlier_text}
@@ -581,7 +628,7 @@ Output ONLY the markdown report, no preamble."""
     client = make_client()
     try:
         resp = await client.messages.create(
-            model=settings.MODEL_ID, max_tokens=1200,
+            model=settings.MODEL_ID, max_tokens=2600,
             messages=[{"role": "user", "content": prompt}])
         return resp.content[0].text
     except Exception as e:

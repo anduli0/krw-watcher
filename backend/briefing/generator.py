@@ -27,10 +27,22 @@ BRIEF_SCHEMA = """Respond ONLY with JSON:
   "title": "<오늘 원/달러 한 줄 제목>",
   "headline": "<시장 임팩트 한 문장>",
   "forecast_summary": "<환율 전망을 자연스러운 서술체 2-3문장으로: 1주/1개월/3개월/1년 방향과 폭을 흐름 있게>",
-  "analysis": "<핵심 드라이버(금리차/달러/위안/리스크/수급/통화량/엔캐리)를 자연스럽게 이어지는 4-6문장 서술체로 종합 — 개조식 금지>",
-  "news_digest": ["<핵심 뉴스를 환율 함의로 해석한 완결된 서술 문장 1>", "<2>", "<3>", "<4>"],
-  "trading_view": "<트레이딩 함의 1-2문장: 방향/레벨/사이즈 톤>",
-  "risks": ["<관전 포인트·리스크 1>", "<2>", "<3>"]
+  "horizon_breakdown": {
+    "1w":  "<1주 전망의 핵심 근거 1문장 — 어떤 동인이 이 방향을 만드는지>",
+    "1m":  "<1개월 전망의 핵심 근거 1문장>",
+    "3m":  "<3개월 전망의 핵심 근거 1문장>",
+    "12m": "<1년 전망의 핵심 근거 1문장 — 구조적 수급 반영>"
+  },
+  "analysis": "<핵심 드라이버(금리차/달러/위안/리스크/수급/통화량/엔캐리)를 자연스럽게 이어지는 6-8문장 서술체로 종합 — 개조식 금지, 위원회 논의를 실제로 반영>",
+  "key_levels": "<원/달러 주요 레벨을 서술체 1-2문장으로: 지지·저항 구간(원)과 이탈 시 트리거되는 방향>",
+  "scenario": {
+    "base": "<기준 시나리오 1문장: 가장 가능성 높은 경로와 근거>",
+    "bull_usd": "<달러 강세(원화 약세) 시나리오 1문장: 무엇이 트리거하나>",
+    "bear_usd": "<달러 약세(원화 강세) 시나리오 1문장: 무엇이 트리거하나>"
+  },
+  "news_digest": ["<핵심 뉴스를 환율 함의로 해석한 완결된 서술 문장 1>", "<2>", "<3>", "<4>", "<5>"],
+  "trading_view": "<트레이딩 함의 2-3문장: 방향/진입·관심 레벨/사이즈 톤/무효화 조건>",
+  "risks": ["<관전 포인트·리스크 1>", "<2>", "<3>", "<4>"]
 }"""
 
 
@@ -139,7 +151,7 @@ async def generate_brief(db, lang: str = "ko") -> dict:
     brief = {}
     try:
         resp = await client.messages.create(
-            model=settings.MODEL_ID, max_tokens=3500, temperature=0.4,
+            model=settings.MODEL_ID, max_tokens=4800, temperature=0.4,
             messages=[{"role": "user", "content": prompt}])
         raw = "".join(b.text for b in resp.content if hasattr(b, "text"))
         import re
@@ -178,7 +190,21 @@ def format_telegram(brief: dict) -> str:
     ]
     if brief.get("_fc_lines"):
         parts.append("<pre>" + e("\n".join(brief["_fc_lines"])) + "</pre>")
+    hb = brief.get("horizon_breakdown") or {}
+    if isinstance(hb, dict) and any(hb.values()):
+        names = {"1w": "1주", "1m": "1개월", "3m": "3개월", "12m": "1년"}
+        lines = [f"• <b>{names[k]}</b> {e(hb[k])}" for k in ("1w", "1m", "3m", "12m") if hb.get(k)]
+        parts.append("\n🧭 <b>기간별 근거</b>\n" + "\n".join(lines))
     parts.append(f"\n🔎 <b>전문 분석</b>\n{e(brief.get('analysis'))}")
+    if brief.get("key_levels"):
+        parts.append(f"\n📐 <b>주요 레벨</b>\n{e(brief.get('key_levels'))}")
+    sc = brief.get("scenario") or {}
+    if isinstance(sc, dict) and any(sc.values()):
+        sl = []
+        if sc.get("base"): sl.append(f"• <b>기준</b> {e(sc['base'])}")
+        if sc.get("bull_usd"): sl.append(f"• <b>원화 약세</b> {e(sc['bull_usd'])}")
+        if sc.get("bear_usd"): sl.append(f"• <b>원화 강세</b> {e(sc['bear_usd'])}")
+        parts.append("\n🎲 <b>시나리오</b>\n" + "\n".join(sl))
     if brief.get("news_digest"):
         parts.append("\n📰 <b>핵심 뉴스 종합</b>\n" + "\n".join(f"• {e(x)}" for x in brief["news_digest"]))
     if brief.get("trading_view"):

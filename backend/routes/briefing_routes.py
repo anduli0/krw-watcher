@@ -18,7 +18,10 @@ def _unpack(row):
         full = {}
     return {
         "date": row.briefing_date, "title": row.title, "headline": row.headline,
-        "forecast_summary": full.get("forecast_summary"), "analysis": full.get("analysis"),
+        "forecast_summary": full.get("forecast_summary"),
+        "horizon_breakdown": full.get("horizon_breakdown", {}),
+        "analysis": full.get("analysis"),
+        "key_levels": full.get("key_levels"), "scenario": full.get("scenario", {}),
         "news_digest": full.get("news_digest", []), "trading_view": full.get("trading_view"),
         "risks": full.get("risks", []), "sources": full.get("_sources", []),
         "fc_lines": full.get("_fc_lines", []),
