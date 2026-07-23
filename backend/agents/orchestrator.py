@@ -325,18 +325,19 @@ async def run_full_cycle(ctx: AgentContext, cycle_type: str = "scheduled") -> di
         else:
             agg["sector_agreement"] = "mixed"
 
-    # Long-form report is generated OUTSIDE the chief consensus JSON so a long report
-    # can never truncate/break the parse of the horizon numbers (the core product).
+    # The report rides the chief's (already-successful) call — reliable and free.
+    # Only if the chief omitted it do we fall back to a separate _derivation_report
+    # call (the subscription CLI backend is flakier on extra standalone calls).
     hierarchy_for_report = {
         "academic": academic_view, "public": public_view, "private": private_view,
         "reconciliation": chief.get("reconciliation", ""),
     }
-    report_ko, report_en = await asyncio.gather(
-        _derivation_report(final_results, horizon_aggregates, outliers, revisions,
-                           errors, ctx, "ko", hierarchy_for_report),
-        _derivation_report(final_results, horizon_aggregates, outliers, revisions,
-                           errors, ctx, "en", hierarchy_for_report),
-    )
+    report_ko = chief.get("report_ko") or await _derivation_report(
+        final_results, horizon_aggregates, outliers, revisions, errors, ctx, "ko",
+        hierarchy_for_report)
+    report_en = chief.get("report_en") or await _derivation_report(
+        final_results, horizon_aggregates, outliers, revisions, errors, ctx, "en",
+        hierarchy_for_report)
 
     # ── Capture the deliberation trail so the dashboard can show HOW the forecast was reached ──
     # Round-2 coordination: each outlier's pre/post-consensus revision.
@@ -435,7 +436,9 @@ CHIEF_SCHEMA = """Respond ONLY with JSON:
     "3m":  {"delta_krw": <float>, "confidence": <0-0.93>},
     "12m": {"delta_krw": <float>, "confidence": <0-0.93>}
   },
-  "reconciliation": "<학계 vs 퍼블릭 vs 프라이빗 견해를 호라이즌별로 어떻게 가중·조정했는지 3-4문장 — 어느 섹터를 어느 구간에서 더 신뢰했고 왜인지>"
+  "reconciliation": "<학계 vs 퍼블릭 vs 프라이빗 견해를 호라이즌별로 어떻게 가중·조정했는지 3-4문장 — 어느 섹터를 어느 구간에서 더 신뢰했고 왜인지>",
+  "report_ko": "<트레이딩 데스크용 도출 리포트, 한국어 마크다운 1000~1400자. 반드시 5개 섹션(각 섹션 서술체): **전망 요약**(4개 horizon 방향·폭(원)·신뢰도와 구간 간 연결), **핵심 동인**(3-4개 드라이버 방향·근거), **섹터 이견과 가중**(학계·퍼블릭·프라이빗이 어디서 갈렸고 수석이 호라이즌별로 어느 쪽에 가중했는지), **트레이딩 함의**(롱/숏/관망·진입 레벨(원)·사이즈 톤·무효화 시나리오), **리스크·관전 포인트**(2-3개)>",
+  "report_en": "<English markdown derivation report, 600-1000 chars, same 5 sections: Outlook summary / Key drivers / Sector divergence & weighting / Trading implication / Risks>"
 }
 delta_krw: +면 원화 약세. 코히런스 준수."""
 
@@ -513,12 +516,13 @@ async def _chief_orchestrate(views: dict, math_aggregates: dict, ctx: AgentConte
         f"  종합: {pri.get('synthesis','')}\n  이견정리: {pri.get('key_debate','')}\n\n"
         f"[정량 앵커] {anchor}\n현재 스팟: {ctx.spot}원\n\n"
         "학계는 적정가치·평균회귀(장기), 퍼블릭은 정책 경로·개입(정책 분기), 프라이빗은 수급·모멘텀·캐리"
-        "(단기)에 강합니다. 세 섹터의 긴장을 호라이즌별로 어떻게 가중·조정했는지 reconciliation에 구체적으로 "
-        "명시하고, 호라이즌별 최종 Δ와 신뢰도를 도출하세요.\n\n"
+        "(단기)에 강합니다. 세 섹터의 긴장을 호라이즌별로 어떻게 가중·조정했는지 reconciliation에 명시하고, "
+        "호라이즌별 최종 Δ·신뢰도와 함께, 위 섹터 협의를 근거로 한 최종 도출 리포트(report_ko·report_en)를 "
+        "작성하세요.\n\n"
         f"{CHIEF_SCHEMA}")
     client = make_client()
     try:
-        resp = await client.messages.create(model=settings.MODEL_ID, max_tokens=2600,
+        resp = await client.messages.create(model=settings.MODEL_ID, max_tokens=4000,
                                             messages=[{"role": "user", "content": prompt}])
         data = _parse_json("".join(b.text for b in resp.content if hasattr(b, "text")))
         if data.get("horizons"):
