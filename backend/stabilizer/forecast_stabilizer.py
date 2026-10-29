@@ -29,6 +29,13 @@ VOL_HIGH_THRESHOLD = 20.0
 
 # Gates / quantization (won).
 MIN_CONFIDENCE = 0.45     # publish more moves rather than holding (bolder; was 0.50)
+# Staleness override for the conviction gate. The gate exists to stop whipsaw on noisy
+# single-cycle output — not to freeze a number indefinitely. Bias-correction lowers the
+# confidence of exactly those horizons whose published path has been wrong, so without an
+# override the gate locks the stale value in place (observed: 3m held at +15원 for ~200
+# cycles while the corrected path read -56원). After this many consecutive unchanged
+# cycles, a ≥1원 move in the smoothed path is published regardless of confidence.
+STALE_STREAK_RUNS = 12
 QUANTIZE_KRW   = 1.0
 HALF_QUANTUM   = QUANTIZE_KRW / 2
 
@@ -71,6 +78,7 @@ def stabilize(
     event: dict | None = None,
     bypass_ema: bool = False,
     recent_raw_deltas: list[float] | None = None,
+    force_update: bool = False,
 ) -> StabilizationResult:
     # Stage 0
     if bypass_ema:
@@ -90,8 +98,9 @@ def stabilize(
     if delta_from_prev < HALF_QUANTUM:
         return _hold(new_raw_delta, smoothed, prev_published_delta, prev_streak, alpha, regime)
 
-    # Stage 3: conviction gate (event days bypass)
-    if not event and new_confidence < MIN_CONFIDENCE:
+    # Stage 3: conviction gate (event days, stale paths and forced updates bypass)
+    stale = prev_streak >= STALE_STREAK_RUNS
+    if not event and not force_update and not stale and new_confidence < MIN_CONFIDENCE:
         return _hold(new_raw_delta, smoothed, prev_published_delta, prev_streak, alpha, regime)
 
     # Stage 4: quantize + change detect

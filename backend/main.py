@@ -200,7 +200,10 @@ async def trigger_cycle(cycle_type: str = "scheduled"):
             st = stabilize(corr_delta, corr_conf,
                            prev_delta, prev_streak, event=event,
                            bypass_ema=(cycle_type in ("forced", "session_open", "session_close")),
-                           recent_raw_deltas=recent)
+                           recent_raw_deltas=recent,
+                           # A proven directional inversion must reach the published path
+                           # even though the same guard lowers this horizon's confidence.
+                           force_update=bool(_adj.get("dir_guard")))
             sig = ("krw_weak" if st.published_delta >= 6 else
                    "krw_strong" if st.published_delta <= -6 else "neutral")
             justification = None
